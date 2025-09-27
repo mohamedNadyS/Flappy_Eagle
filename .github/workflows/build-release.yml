@@ -1,0 +1,160 @@
+# .github/workflows/build-release.yml
+name: Build and Release Flappy Eagle
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            executable_ext: .exe
+            pyinstaller_separator: ";"
+          - os: ubuntu-latest
+            platform: linux
+            executable_ext: ""
+            pyinstaller_separator: ":"
+          - os: macos-latest
+            platform: macos
+            executable_ext: ""
+            pyinstaller_separator: ":"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pygame pyinstaller
+
+    - name: Install Linux dependencies
+      if: matrix.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libpulse-dev
+
+    - name: Build executable
+      run: |
+        pyinstaller \
+          --onefile \
+          --windowed \
+          --name FlappyEagle-${{ matrix.platform }} \
+          --add-data "assets/*${{ matrix.pyinstaller_separator }}assets/" \
+          --exclude-module tkinter \
+          --exclude-module matplotlib \
+          --exclude-module numpy \
+          --exclude-module pandas \
+          --clean \
+          --noconfirm \
+          main.py
+
+    - name: Create archive (Windows)
+      if: matrix.platform == 'windows'
+      run: |
+        mkdir FlappyEagle-${{ matrix.platform }}
+        copy dist\FlappyEagle-${{ matrix.platform }}.exe FlappyEagle-${{ matrix.platform }}\
+        copy README.md FlappyEagle-${{ matrix.platform }}\
+        powershell Compress-Archive -Path FlappyEagle-${{ matrix.platform }} -DestinationPath FlappyEagle-${{ matrix.platform }}.zip
+
+    - name: Create archive (Linux/macOS)
+      if: matrix.platform != 'windows'
+      run: |
+        mkdir FlappyEagle-${{ matrix.platform }}
+        cp dist/FlappyEagle-${{ matrix.platform }} FlappyEagle-${{ matrix.platform }}/
+        cp README.md FlappyEagle-${{ matrix.platform }}/
+        tar -czf FlappyEagle-${{ matrix.platform }}.tar.gz FlappyEagle-${{ matrix.platform }}/
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: FlappyEagle-${{ matrix.platform }}
+        path: |
+          FlappyEagle-${{ matrix.platform }}.zip
+          FlappyEagle-${{ matrix.platform }}.tar.gz
+        retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')  # Only create release for version tags
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Flappy Eagle ${{ github.ref }}
+        body: |
+          # Flappy Eagle Release ${{ github.ref }}
+          
+          Download the appropriate version for your operating system:
+          
+          - **Windows**: FlappyEagle-windows.zip
+          - **Linux**: FlappyEagle-linux.tar.gz  
+          - **macOS**: FlappyEagle-macos.tar.gz
+          
+          ## How to Run:
+          1. Download and extract the archive for your platform
+          2. Run the FlappyEagle executable
+          3. Have fun flying!
+          
+          ## Controls:
+          - SPACE or UP Arrow: Jump/Flap
+          - ESC: Return to menu (from game over)
+          
+          ## Changes in this release:
+          - Add your changelog here
+        draft: false
+        prerelease: false
+
+    - name: Upload Windows Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./FlappyEagle-windows/FlappyEagle-windows.zip
+        asset_name: FlappyEagle-windows.zip
+        asset_content_type: application/zip
+
+    - name: Upload Linux Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./FlappyEagle-linux/FlappyEagle-linux.tar.gz
+        asset_name: FlappyEagle-linux.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload macOS Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./FlappyEagle-macos/FlappyEagle-macos.tar.gz
+        asset_name: FlappyEagle-macos.tar.gz
+        asset_content_type: application/gzip

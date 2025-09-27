@@ -1,3 +1,4 @@
+# .github/workflows/build-release.yml
 name: Build and Release Flappy Eagle
 
 on:
@@ -77,7 +78,7 @@ jobs:
         tar -czf FlappyEagle-${{ matrix.platform }}.tar.gz FlappyEagle-${{ matrix.platform }}/
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: FlappyEagle-${{ matrix.platform }}
         path: |
@@ -95,18 +96,18 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Flappy Eagle ${{ github.ref }}
+        tag_name: ${{ github.ref_name }}
+        name: Flappy Eagle ${{ github.ref_name }}
         body: |
-          # Flappy Eagle Release ${{ github.ref }}
+          # Flappy Eagle Release ${{ github.ref_name }}
           
           Download the appropriate version for your operating system:
           
@@ -124,36 +125,12 @@ jobs:
           - ESC: Return to menu (from game over)
           
           ## Changes in this release:
-          - Add your changelog here
+          - Updated GitHub Actions workflow
+          - Fixed collision detection for better gameplay
+          - Added collision sound effects
         draft: false
         prerelease: false
-
-    - name: Upload Windows Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./FlappyEagle-windows/FlappyEagle-windows.zip
-        asset_name: FlappyEagle-windows.zip
-        asset_content_type: application/zip
-
-    - name: Upload Linux Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./FlappyEagle-linux/FlappyEagle-linux.tar.gz
-        asset_name: FlappyEagle-linux.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload macOS Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./FlappyEagle-macos/FlappyEagle-macos.tar.gz
-        asset_name: FlappyEagle-macos.tar.gz
-        asset_content_type: application/gzip
+        files: |
+          FlappyEagle-windows/FlappyEagle-windows.zip
+          FlappyEagle-linux/FlappyEagle-linux.tar.gz
+          FlappyEagle-macos/FlappyEagle-macos.tar.gz

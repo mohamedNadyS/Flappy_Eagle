@@ -46,13 +46,19 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y libasound2-dev libpulse-dev
 
-    - name: Build executable
+    - name: Build executable (Windows)
+      if: matrix.platform == 'windows'
+      run: |
+        pyinstaller --onefile --windowed --name FlappyEagle-${{ matrix.platform }} --add-data "assets/*;assets/" --exclude-module tkinter --exclude-module matplotlib --exclude-module numpy --exclude-module pandas --clean --noconfirm main.py
+
+    - name: Build executable (Linux/macOS)
+      if: matrix.platform != 'windows'
       run: |
         pyinstaller \
           --onefile \
           --windowed \
           --name FlappyEagle-${{ matrix.platform }} \
-          --add-data "assets/*${{ matrix.pyinstaller_separator }}assets/" \
+          --add-data "assets/*:assets/" \
           --exclude-module tkinter \
           --exclude-module matplotlib \
           --exclude-module numpy \
